@@ -75,7 +75,7 @@ try {
     # Step 1: Generate JSON data from MCP CLI
     Write-Progress "Step 1: Generating MCP tools data from CLI..."
     
-    Push-Location "..\servers\Azure.Mcp.Server"
+    Push-Location "..\servers\Azure.Mcp.Server\src"
     
     Write-Progress "Running CLI tools list command..."
     $rawOutput = & dotnet run -- tools list
