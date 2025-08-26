@@ -3,16 +3,14 @@
 
 using System.Text.RegularExpressions;
 using NaturalLanguageGenerator;
-using Shared; // Added namespace for MappedParameter
+using Shared; 
 
 public static class OptionsDiscovery
 {
 
-    public static MappedParameter[]? ReplacementsParams;
-
-    public static async Task<List<CommonParameter>> DiscoverCommonParametersFromSource(MappedParameter[]? incomingReplacementsParams)
+    public static async Task<List<CommonParameter>> DiscoverCommonParametersFromSource()
     {
-        ReplacementsParams = incomingReplacementsParams;
+        // TextCleanup is initialized by Config.Load previously; use it directly
         var commonParams = new List<CommonParameter>();
 
         // Dynamically discover all option definitions from OptionDefinitions.cs
@@ -48,12 +46,12 @@ public static class OptionsDiscovery
                     Name = matchingOption.ParameterName,
                     Type = MapCSharpTypeToJsonType(mapping.PropertyType.Replace("?", "")),
                     IsRequired = matchingOption.IsRequired,
-                    Description = matchingOption.Description,
+                    Description = TextCleanup.ReplaceStaticText(matchingOption.Description),
                     UsagePercent = 100,
                     IsHidden = matchingOption.IsHidden,
                     Source = matchingOption.ClassName,
                     RequiredText = matchingOption.IsRequired ? "Required" : "Optional",
-                    NL_Name = ReplacementsParams?.FirstOrDefault(rp => rp.Parameter == matchingOption.ParameterName)?.NaturalLanguage ?? "TBD"
+                    NL_Name = TextCleanup.NormalizeParameter(matchingOption.ParameterName ?? "")
                 });
             }
         }
@@ -70,12 +68,12 @@ public static class OptionsDiscovery
                     Name = option.ParameterName ?? "Unknown",
                     Type = MapCSharpTypeToJsonType(option.Type),
                     IsRequired = option.IsRequired,
-                    Description = option.Description,
+                    Description = TextCleanup.ReplaceStaticText(option.Description),
                     UsagePercent = 100,
                     IsHidden = option.IsHidden,
                     Source = option.ClassName,
                     RequiredText = option.IsRequired ? "Required" : "Optional",
-                    NL_Name = ReplacementsParams?.FirstOrDefault(rp => rp.Parameter == option.ParameterName)?.NaturalLanguage ?? "TBD",
+                    NL_Name = TextCleanup.NormalizeParameter(option.ParameterName ?? "")
                 };
 
                 if (newParameter.Name == "Unknown")
@@ -184,7 +182,7 @@ public static class OptionsDiscovery
                 var desc = descMatch.Groups[1].Value;
                 if (!desc.StartsWith("--") && desc.Length > 10) // Skip parameter names, keep descriptions
                 {
-                    descriptions.Add(desc);
+                    descriptions.Add(TextCleanup.ReplaceStaticText(desc));
                 }
             }
 
@@ -227,7 +225,7 @@ public static class OptionsDiscovery
                 PropertyName = propertyName,
                 ParameterName = paramName,
                 Type = type,
-                Description = description,
+                Description = TextCleanup.ReplaceStaticText(description),
                 IsRequired = isRequired,
                 IsHidden = isHidden
             });
