@@ -12,8 +12,16 @@
         "NaturalLanguage": "ID"
     },
     {
+        "Parameter": "uri",
+        "NaturalLanguage": "URI"
+    },
+    {
         "Parameter": "url",
         "NaturalLanguage": "URL"
+    },
+    {
+        "Parameter": "ai",
+        "NaturalLanguage": "AI"
     }
 
 ]
