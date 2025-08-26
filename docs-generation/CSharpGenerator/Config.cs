@@ -1,14 +1,16 @@
+using System;
+using System.IO;
+using System.Collections.Generic;
 using System.Text.Json;
 using Shared;
 using NaturalLanguageGenerator; // Added namespace for TextCleanup
-
-namespace CSharpGenerator;
 
 public class ConfigFiles
 {
     public string? NLParametersPath { get; set; }
     public string? TextReplacerParametersPath { get; set; }
     public List<string> RequiredFiles { get; set; } = new();
+
 }
 
 
@@ -18,8 +20,7 @@ public class Config
     public static string? TextReplacerParametersPath { get; set; } // Made static to resolve object reference error
 
     public List<string> RequiredFiles { get; set; } = new();
-
-    public static MappedParameter[]? Load(string configPath)
+    public static bool Load(string configPath)
     {
         if (!File.Exists(configPath))
         {
@@ -68,10 +69,12 @@ public class Config
 
         Console.WriteLine($"RequiredFiles: {JsonSerializer.Serialize(config.RequiredFiles, new JsonSerializerOptions { WriteIndented = true })}");
 
-        var mappedParams = TextCleanup.LoadFiles(config.RequiredFiles);
+        var success = TextCleanup.LoadFiles(config.RequiredFiles);
+        if (!success)
+        {
+            return false;
+        }
 
-        Console.WriteLine($"Mapped Parameters: {JsonSerializer.Serialize(mappedParams, new JsonSerializerOptions { WriteIndented = true })}");
-
-        return mappedParams;
+        return true;
     }
 }

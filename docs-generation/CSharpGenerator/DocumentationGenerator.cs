@@ -2,17 +2,14 @@
 // Licensed under the MIT License.
 using System.Text.Json;
 using NaturalLanguageGenerator;
-using Shared; // Added namespace for MappedParameter
+using Shared;
+
 /// <summary>
 /// Handles all documentation generation logic, including data transformation,
 /// page generation, and common parameter analysis.
 /// </summary>
 public static class DocumentationGenerator
 {
-    
-    public static MappedParameter[]? ReplacementsParams;
-
-
     /// <summary>
     /// Generates comprehensive documentation from CLI output data.
     /// </summary>
@@ -21,11 +18,9 @@ public static class DocumentationGenerator
         string outputDir,
         bool generateIndex = false,
         bool generateCommon = false,
-        bool generateCommands = false,
-         MappedParameter[]? replacementsParams = null) // Made optional parameter nullable
+        bool generateCommands = false)
     {
-
-        ReplacementsParams = replacementsParams; // Corrected assignment to use the parameter
+        // Config.Load has been called in Program.Main and TextCleanup is initialized statically
 
         // Read CLI output
         var cliOutputJson = await File.ReadAllTextAsync(cliOutputFile);
@@ -44,7 +39,7 @@ public static class DocumentationGenerator
         var transformedData = TransformCliOutput(cliOutput);
 
         // Add source code discovered common parameters
-        var sourceCommonParams = await OptionsDiscovery.DiscoverCommonParametersFromSource(ReplacementsParams);
+        var sourceCommonParams = await OptionsDiscovery.DiscoverCommonParametersFromSource();
 
         // Merge source-discovered parameters with CLI-discovered ones
         transformedData = MergeCommonParameters(transformedData, sourceCommonParams);
@@ -146,17 +141,17 @@ public static class DocumentationGenerator
         {
             Name = tool.Name,
             Command = tool.Command,
-            Description = tool.Description,
+            Description = TextCleanup.ReplaceStaticText(tool.Description ?? ""),
             SourceFile = tool.SourceFile,
             Area = tool.Area,
             Option = tool.Option?.Select(opt => new Option
             {
                 Name = opt.Name,
-                NL_Name = ReplacementsParams?.FirstOrDefault(rp => rp.Parameter == opt.Name)?.NaturalLanguage ?? "TBD",
+                NL_Name = TextCleanup.NormalizeParameter(opt.Name ?? ""),
                 Type = opt.Type,
                 Required = opt.Required,
                 RequiredText = opt.Required ? "Required" : "Optional",
-                Description = opt.Description
+                Description = TextCleanup.ReplaceStaticText(opt.Description ?? ""),
             }).Where(opt => !commonParameterNames.Contains(opt.Name ?? "")).ToList()
         }).ToList();
 
