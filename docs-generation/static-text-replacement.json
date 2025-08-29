@@ -22,6 +22,10 @@
     {
         "Parameter": "ai",
         "NaturalLanguage": "AI"
+    },
+    {
+        "Parameter": "sku",
+        "NaturalLanguage": "SKU"
     }
 
 ]
