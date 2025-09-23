@@ -13,13 +13,53 @@ public static class OptionsDiscovery
         // TextCleanup is initialized by Config.Load previously; use it directly
         var commonParams = new List<CommonParameter>();
 
-        // Dynamically discover all option definitions from OptionDefinitions.cs
-        var optionDefinitionsPath = Path.Combine("..", "..", "core", "src", "AzureMcp.Core", "Models", "Option", "OptionDefinitions.cs");
+        // Try to find OptionDefinitions.cs in different possible locations
+        string[] possiblePaths = new string[] {
+            Path.Combine("..", "..", "core", "Azure.Mcp.Core", "src", "Models", "Option", "OptionDefinitions.cs"),
+            Path.Combine("..", "..", "core", "Azure.Mcp.Core", "src", "Option", "OptionDefinitions.cs"),
+            Path.Combine("..", "..", "core", "AzureMcp.Core", "src", "Models", "Option", "OptionDefinitions.cs"),
+            Path.Combine("..", "..", "core", "AzureMcp.Core", "src", "Option", "OptionDefinitions.cs")
+        };
 
-        if (!File.Exists(optionDefinitionsPath))
+        string? optionDefinitionsPath = null;
+        foreach (var path in possiblePaths)
         {
-            Console.WriteLine($"Warning: OptionDefinitions.cs not found at {optionDefinitionsPath}");
-            return commonParams;
+            if (File.Exists(path))
+            {
+                optionDefinitionsPath = path;
+                Console.WriteLine($"Found OptionDefinitions.cs at: {optionDefinitionsPath}");
+                break;
+            }
+        }
+
+        // Get mappings from options classes regardless of whether we have definitions
+        var mappingsFromClasses = await DiscoverOptionsClassMappings();
+        Console.WriteLine($"Found {mappingsFromClasses.Count} property mappings from options classes");
+
+        if (optionDefinitionsPath == null)
+        {
+            Console.WriteLine("Warning: OptionDefinitions.cs not found in any of the expected locations. Using only options classes.");
+            
+            // Create basic parameters from the discovered properties
+            foreach (var mapping in mappingsFromClasses)
+            {
+                Console.WriteLine($"Adding parameter from class mapping: {mapping.ParameterName}");
+                
+                commonParams.Add(new CommonParameter
+                {
+                    Name = mapping.ParameterName,
+                    Type = MapCSharpTypeToJsonType(mapping.PropertyType.Replace("?", "")),
+                    IsRequired = false, // Conservative default
+                    Description = $"Parameter for {mapping.PropertyName} in {mapping.ClassName}",
+                    UsagePercent = 100,
+                    IsHidden = false,
+                    Source = mapping.ClassName,
+                    RequiredText = "Optional",
+                    NL_Name = TextCleanup.NormalizeParameter(mapping.ParameterName)
+                });
+            }
+            
+            return commonParams.OrderBy(p => p.Name).ToList();
         }
 
         var optionDefinitionsSource = await File.ReadAllTextAsync(optionDefinitionsPath);
@@ -239,22 +279,82 @@ public static class OptionsDiscovery
     {
         var mappings = new List<OptionsClassMapping>();
 
-        // Discover GlobalOptions properties
-        var globalOptionsPath = Path.Combine("..", "..", "core", "src", "AzureMcp.Core", "Models", "Option", "GlobalOptions.cs");
-        if (File.Exists(globalOptionsPath))
-        {
-            var globalOptionsSource = await File.ReadAllTextAsync(globalOptionsPath);
-            mappings.AddRange(ExtractPropertiesFromOptionsClass(globalOptionsSource, "GlobalOptions"));
-        }
+        // Try different possible paths for the Options directory
+        string[] possiblePaths = new string[] {
+            Path.Combine("..", "..", "core", "Azure.Mcp.Core", "src", "Models", "Option"),
+            Path.Combine("..", "..", "core", "Azure.Mcp.Core", "src", "Option"),
+            Path.Combine("..", "..", "core", "AzureMcp.Core", "src", "Models", "Option"),
+            Path.Combine("..", "..", "core", "AzureMcp.Core", "src", "Option")
+        };
 
-        // Discover RetryPolicyOptions properties
-        var retryPolicyPath = Path.Combine("..", "..", "core", "src", "AzureMcp.Core", "Models", "Option", "RetryPolicyOptions.cs");
-        if (File.Exists(retryPolicyPath))
+        string? optionsDirectoryPath = null;
+        foreach (var path in possiblePaths)
         {
-            var retryPolicySource = await File.ReadAllTextAsync(retryPolicyPath);
-            mappings.AddRange(ExtractPropertiesFromOptionsClass(retryPolicySource, "RetryPolicyOptions"));
+            if (Directory.Exists(path))
+            {
+                optionsDirectoryPath = path;
+                Console.WriteLine($"Found Options directory at: {optionsDirectoryPath}");
+                break;
+            }
         }
-
+        
+        if (optionsDirectoryPath == null)
+        {
+            Console.WriteLine("Warning: Options directory not found in any of the expected locations");
+            return mappings;
+        }
+        
+        // Get all .cs files in the Options directory
+        var optionsFiles = Directory.GetFiles(optionsDirectoryPath, "*.cs")
+            .Where(file => !Path.GetFileName(file).Equals("OptionDefinitions.cs", StringComparison.OrdinalIgnoreCase)) // Skip the definitions file
+            .ToList();
+        
+        Console.WriteLine($"Found {optionsFiles.Count} options class files");
+        
+        if (optionsFiles.Count == 0)
+        {
+            Console.WriteLine($"Warning: No options class files found in {optionsDirectoryPath}");
+            
+            // Fallback to hardcoded GlobalOptions and RetryPolicyOptions paths for backward compatibility
+            var globalOptionsPath = Path.Combine(optionsDirectoryPath, "GlobalOptions.cs");
+            if (File.Exists(globalOptionsPath))
+            {
+                Console.WriteLine($"Using fallback: {globalOptionsPath}");
+                var globalOptionsSource = await File.ReadAllTextAsync(globalOptionsPath);
+                mappings.AddRange(ExtractPropertiesFromOptionsClass(globalOptionsSource, "GlobalOptions"));
+            }
+            
+            var retryPolicyPath = Path.Combine(optionsDirectoryPath, "RetryPolicyOptions.cs");
+            if (File.Exists(retryPolicyPath))
+            {
+                Console.WriteLine($"Using fallback: {retryPolicyPath}");
+                var retryPolicySource = await File.ReadAllTextAsync(retryPolicyPath);
+                mappings.AddRange(ExtractPropertiesFromOptionsClass(retryPolicySource, "RetryPolicyOptions"));
+            }
+            
+            return mappings;
+        }
+        
+        // Process each file
+        foreach (var optionsFile in optionsFiles)
+        {
+            var className = Path.GetFileNameWithoutExtension(optionsFile);
+            Console.WriteLine($"Processing options class: {className}");
+            
+            try
+            {
+                var optionsSource = await File.ReadAllTextAsync(optionsFile);
+                var extractedMappings = ExtractPropertiesFromOptionsClass(optionsSource, className);
+                Console.WriteLine($"Extracted {extractedMappings.Count} properties from {className}");
+                mappings.AddRange(extractedMappings);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing {className}: {ex.Message}");
+            }
+        }
+        
+        Console.WriteLine($"Total mappings discovered: {mappings.Count}");
         return mappings;
     }
 
@@ -265,6 +365,20 @@ public static class OptionsDiscovery
         // Extract properties that might map to option definitions
         var propertyPattern = @"public\s+([^?\s]+\??)\s+(\w+)\s*\{\s*get;\s*set;\s*\}";
         var propertyMatches = Regex.Matches(sourceCode, propertyPattern);
+
+        // Check if the class actually contains the expected class name
+        var classNamePattern = $@"(public|internal)\s+(class|record)\s+{className}";
+        if (!Regex.IsMatch(sourceCode, classNamePattern))
+        {
+            Console.WriteLine($"Warning: Class {className} not found in the source file");
+            // Try to extract the actual class name from the file
+            var actualClassMatch = Regex.Match(sourceCode, @"(public|internal)\s+(class|record)\s+(\w+)");
+            if (actualClassMatch.Success)
+            {
+                className = actualClassMatch.Groups[3].Value;
+                Console.WriteLine($"Using actual class name: {className}");
+            }
+        }
 
         foreach (Match match in propertyMatches)
         {

@@ -163,7 +163,20 @@ public static class HandlebarsTemplateEngine
             {
                 // For "azmcp storage blob batch set-tier" -> return "blob"
                 // For "azmcp storage account list" -> return "account"
-                return char.ToUpper(parts[2][0]) + parts[2].Substring(1).ToLower();
+                string subTool = parts[2];
+                
+                // Split by dashes if present and format each part
+                if (subTool.Contains('-'))
+                {
+                    var subToolParts = subTool.Split('-')
+                        .Where(p => !string.IsNullOrEmpty(p))
+                        .Select(part => char.ToUpper(part[0]) + part.Substring(1).ToLower());
+                    
+                    return string.Join(" ", subToolParts);
+                }
+                
+                // Simple capitalization for non-hyphenated terms
+                return char.ToUpper(subTool[0]) + subTool.Substring(1).ToLower();
             }
             
             return string.Empty;
@@ -184,13 +197,116 @@ public static class HandlebarsTemplateEngine
             // For "azmcp storage blob batch set-tier" -> return "batch set-tier"
             // Skip "azmcp", area name, and sub-tool family
             var remainingParts = parts.Skip(3).ToArray();
-            return string.Join(" ", remainingParts);
+            string operation = string.Join(" ", remainingParts);
+            
+            // Handle multiple words with proper casing
+            if (operation.Contains(' '))
+            {
+                var operationParts = operation.Split(' ')
+                    .Where(p => !string.IsNullOrEmpty(p))
+                    .Select(part => {
+                        // Handle hyphenated terms
+                        if (part.Contains('-'))
+                        {
+                            var hyphenParts = part.Split('-')
+                                .Where(hp => !string.IsNullOrEmpty(hp))
+                                .Select(hp => char.ToUpper(hp[0]) + hp.Substring(1).ToLower());
+                            return string.Join("-", hyphenParts);
+                        }
+                        // Regular term
+                        return char.ToUpper(part[0]) + part.Substring(1).ToLower();
+                    });
+                
+                return string.Join(" ", operationParts);
+            }
+            
+            // Handle single hyphenated word
+            if (operation.Contains('-'))
+            {
+                var operationParts = operation.Split('-')
+                    .Where(p => !string.IsNullOrEmpty(p))
+                    .Select(part => char.ToUpper(part[0]) + part.Substring(1).ToLower());
+                return string.Join("-", operationParts);
+            }
+            
+            // Handle single non-hyphenated word
+            if (!string.IsNullOrEmpty(operation))
+            {
+                return char.ToUpper(operation[0]) + operation.Substring(1).ToLower();
+            }
+            
+            return string.Empty;
         });
 
         // Concatenate strings
         handlebars.RegisterHelper("concat", (context, arguments) =>
         {
             return string.Join("", arguments.Select(arg => arg?.ToString() ?? string.Empty));
+        });
+        
+        // Format parameter name to natural language
+        handlebars.RegisterHelper("formatNaturalLanguage", (context, arguments) =>
+        {
+            if (arguments.Length == 0 || arguments[0] == null)
+                return "Unknown";
+                
+            var paramName = arguments[0].ToString() ?? "";
+            
+            // Remove CLI-style prefix if present
+            if (paramName.StartsWith("--"))
+                paramName = paramName.Substring(2);
+                
+            // Split by hyphens and format each word
+            var words = paramName.Split('-')
+                .Where(w => !string.IsNullOrEmpty(w))
+                .Select(word => 
+                {
+                    // Handle common acronyms
+                    if (word.Equals("id", StringComparison.OrdinalIgnoreCase)) return "ID";
+                    if (word.Equals("ids", StringComparison.OrdinalIgnoreCase)) return "IDs";
+                    if (word.Equals("uri", StringComparison.OrdinalIgnoreCase)) return "URI";
+                    if (word.Equals("url", StringComparison.OrdinalIgnoreCase)) return "URL";
+                    if (word.Equals("urls", StringComparison.OrdinalIgnoreCase)) return "URLs";
+                    if (word.Equals("ai", StringComparison.OrdinalIgnoreCase)) return "AI";
+                    if (word.Equals("api", StringComparison.OrdinalIgnoreCase)) return "API";
+                    if (word.Equals("apis", StringComparison.OrdinalIgnoreCase)) return "APIs";
+                    if (word.Equals("cpu", StringComparison.OrdinalIgnoreCase)) return "CPU";
+                    if (word.Equals("gpu", StringComparison.OrdinalIgnoreCase)) return "GPU";
+                    if (word.Equals("ip", StringComparison.OrdinalIgnoreCase)) return "IP";
+                    if (word.Equals("sql", StringComparison.OrdinalIgnoreCase)) return "SQL";
+                    if (word.Equals("vm", StringComparison.OrdinalIgnoreCase)) return "VM";
+                    if (word.Equals("vms", StringComparison.OrdinalIgnoreCase)) return "VMs";
+                    if (word.Equals("dns", StringComparison.OrdinalIgnoreCase)) return "DNS";
+                    if (word.Equals("sku", StringComparison.OrdinalIgnoreCase)) return "SKU";
+                    if (word.Equals("skus", StringComparison.OrdinalIgnoreCase)) return "SKUs";
+                    if (word.Equals("tls", StringComparison.OrdinalIgnoreCase)) return "TLS";
+                    if (word.Equals("ssl", StringComparison.OrdinalIgnoreCase)) return "SSL";
+                    if (word.Equals("http", StringComparison.OrdinalIgnoreCase)) return "HTTP";
+                    if (word.Equals("https", StringComparison.OrdinalIgnoreCase)) return "HTTPS";
+                    if (word.Equals("json", StringComparison.OrdinalIgnoreCase)) return "JSON";
+                    if (word.Equals("xml", StringComparison.OrdinalIgnoreCase)) return "XML";
+                    if (word.Equals("yaml", StringComparison.OrdinalIgnoreCase)) return "YAML";
+                    if (word.Equals("oauth", StringComparison.OrdinalIgnoreCase)) return "OAuth";
+                    if (word.Equals("cdn", StringComparison.OrdinalIgnoreCase)) return "CDN";
+                    if (word.Equals("rg", StringComparison.OrdinalIgnoreCase)) return "Resource group";
+                    
+                    // Default case: capitalize first letter
+                    return char.ToUpper(word[0]) + word.Substring(1);
+                });
+                
+            return string.Join(" ", words);
+        });
+        
+        // Equality comparison helper
+        handlebars.RegisterHelper("eq", (context, arguments) =>
+        {
+            if (arguments.Length < 2)
+                return false;
+                
+            var left = arguments[0]?.ToString();
+            var right = arguments[1]?.ToString();
+            
+            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
         });
         
         // Group by property helper

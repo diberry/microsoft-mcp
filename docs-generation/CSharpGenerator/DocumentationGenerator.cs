@@ -89,9 +89,23 @@ public static class DocumentationGenerator
 
         foreach (var tool in tools)
         {
-            var commandParts = tool.Command?.Split(' ') ?? Array.Empty<string>();
-            if (commandParts.Length >= 2)
+            try
             {
+                if (string.IsNullOrEmpty(tool.Command))
+                {
+                    Console.WriteLine($"Warning: Tool has empty command, skipping.");
+                    continue;
+                }
+            
+                var commandParts = tool.Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                Console.WriteLine($"Debug: Processing command: {tool.Command}, parts: {commandParts.Length}");
+                
+                if (commandParts.Length < 2)
+                {
+                    Console.WriteLine($"Warning: Command '{tool.Command}' has fewer than 2 parts, skipping.");
+                    continue;
+                }
+                
                 var area = commandParts[1]; // e.g., "azmcp storage blob ..." -> "storage"
                 
                 if (!areaGroups.ContainsKey(area))
@@ -110,12 +124,16 @@ public static class DocumentationGenerator
                 // Add area property to tool for compatibility
                 tool.Area = area;
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing tool command '{tool.Command}': {ex.Message}");
+            }
         }
 
         return new TransformedData
         {
             Version = "1.0.0",
-            Tools = tools,
+            Tools = tools ?? new List<Tool>(),
             Areas = areaGroups,
             GeneratedAt = DateTime.UtcNow
         };
@@ -126,49 +144,71 @@ public static class DocumentationGenerator
     /// </summary>
     private static async Task GenerateAreaPageAsync(string areaName, AreaData areaData, TransformedData data, string outputDir, string templateFile)
     {
-        var areaNameForFile = areaName.ToLowerInvariant().Replace(" ", "-");
-        var fileName = $"{areaNameForFile}.md";
-        var outputFile = Path.Combine(outputDir, fileName);
-
-        // Get common parameter names to filter them out - use source-discovered if available
-        var commonParameters = data.SourceDiscoveredCommonParams.Any() 
-            ? data.SourceDiscoveredCommonParams 
-            : ExtractCommonParameters(data.Tools);
-        var commonParameterNames = new HashSet<string>(commonParameters.Select(p => p.Name));
-
-        // Filter out common parameters from tools for area pages
-        var toolsWithFilteredParams = areaData.Tools.Select(tool => new Tool
+        try
         {
-            Name = tool.Name,
-            Command = tool.Command,
-            Description = TextCleanup.ReplaceStaticText(tool.Description ?? ""),
-            SourceFile = tool.SourceFile,
-            Area = tool.Area,
-            Option = tool.Option?.Select(opt => new Option
+            var areaNameForFile = areaName.ToLowerInvariant().Replace(" ", "-");
+            var fileName = $"{areaNameForFile}.md";
+            var outputFile = Path.Combine(outputDir, fileName);
+
+            // Get common parameter names to filter them out - use source-discovered if available
+            var commonParameters = data.SourceDiscoveredCommonParams.Any() 
+                ? data.SourceDiscoveredCommonParams 
+                : ExtractCommonParameters(data.Tools);
+            var commonParameterNames = new HashSet<string>(commonParameters.Select(p => p.Name ?? ""));
+
+            // Filter out common parameters from tools for area pages
+            var toolsWithFilteredParams = areaData.Tools.Select(tool => 
             {
-                Name = opt.Name,
-                NL_Name = TextCleanup.NormalizeParameter(opt.Name ?? ""),
-                Type = opt.Type,
-                Required = opt.Required,
-                RequiredText = opt.Required ? "Required" : "Optional",
-                Description = TextCleanup.ReplaceStaticText(opt.Description ?? ""),
-            }).Where(opt => !commonParameterNames.Contains(opt.Name ?? "")).ToList()
-        }).ToList();
+                var filteredTool = new Tool
+                {
+                    Name = tool.Name,
+                    Command = tool.Command,
+                    Description = TextCleanup.ReplaceStaticText(tool.Description ?? ""),
+                    SourceFile = tool.SourceFile,
+                    Area = tool.Area
+                };
+                
+                if (tool.Option != null)
+                {
+                    filteredTool.Option = tool.Option
+                        .Where(opt => !string.IsNullOrEmpty(opt.Name) && !commonParameterNames.Contains(opt.Name))
+                        .Select(opt => new Option
+                        {
+                            // Handle CLI-style parameter names
+                            Name = opt.Name,
+                            // Generate natural language name from parameter name
+                            NL_Name = TextCleanup.NormalizeParameter(opt.Name ?? ""),
+                            Type = opt.Type,
+                            Required = opt.Required,
+                            RequiredText = opt.Required == true ? "Required" : "Optional",
+                            Description = TextCleanup.ReplaceStaticText(opt.Description ?? ""),
+                        })
+                        .ToList();
+                }
+                
+                return filteredTool;
+            }).ToList();
 
-        var areaPageData = new Dictionary<string, object>
+            var areaPageData = new Dictionary<string, object>
+            {
+                ["areaName"] = areaName,
+                ["areaData"] = areaData,
+                ["tools"] = toolsWithFilteredParams,
+                ["version"] = data.Version,
+                ["generatedAt"] = data.GeneratedAt,
+                ["generateAreaPage"] = true
+            };
+
+            var result = await HandlebarsTemplateEngine.ProcessTemplateAsync(templateFile, areaPageData);
+
+            await File.WriteAllTextAsync(outputFile, result);
+            Console.WriteLine($"Generated area page: {fileName}");
+        }
+        catch (Exception ex)
         {
-            ["areaName"] = areaName,
-            ["areaData"] = areaData,
-            ["tools"] = toolsWithFilteredParams,
-            ["version"] = data.Version,
-            ["generatedAt"] = data.GeneratedAt,
-            ["generateAreaPage"] = true
-        };
-
-        var result = await HandlebarsTemplateEngine.ProcessTemplateAsync(templateFile, areaPageData);
-
-        await File.WriteAllTextAsync(outputFile, result);
-        Console.WriteLine($"Generated area page: {fileName}");
+            Console.WriteLine($"Error generating area page for {areaName}: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
     }
 
     /// <summary>
@@ -333,30 +373,48 @@ public static class DocumentationGenerator
         // - "azmcp subscription list" -> ("subscription", "list")
         
         if (string.IsNullOrEmpty(command))
+        {
+            Console.WriteLine($"Debug: Empty command detected");
             return ("", "");
+        }
             
         var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Console.WriteLine($"Debug: Command '{command}' split into {parts.Length} parts");
         
         if (parts.Length < 3) // Need at least "azmcp area operation"
+        {
+            Console.WriteLine($"Debug: Not enough parts in command '{command}', expected at least 3, got {parts.Length}");
             return ("", "");
+        }
             
-        // Skip "azmcp" prefix
-        var relevantParts = parts.Skip(1).ToArray();
-        
-        if (relevantParts.Length == 2)
+        try
         {
-            // Format: "azmcp area operation"
-            return (relevantParts[0], relevantParts[1]);
+            // Skip "azmcp" prefix
+            var relevantParts = parts.Skip(1).ToArray();
+            
+            if (relevantParts.Length == 2)
+            {
+                // Format: "azmcp area operation"
+                Console.WriteLine($"Debug: Command '{command}' parsed as tool family '{relevantParts[0]}' and operation '{relevantParts[1]}'");
+                return (relevantParts[0], relevantParts[1]);
+            }
+            else if (relevantParts.Length >= 3)
+            {
+                // Format: "azmcp area subarea operation" or longer
+                // Take everything except the last part as tool family
+                var operation = relevantParts.Last();
+                var toolFamily = string.Join(" ", relevantParts.Take(relevantParts.Length - 1));
+                Console.WriteLine($"Debug: Command '{command}' parsed as tool family '{toolFamily}' and operation '{operation}'");
+                return (toolFamily, operation);
+            }
+            
+            Console.WriteLine($"Debug: Unexpected command format: '{command}'");
+            return ("", "");
         }
-        else if (relevantParts.Length >= 3)
+        catch (Exception ex)
         {
-            // Format: "azmcp area subarea operation" or longer
-            // Take everything except the last part as tool family
-            var operation = relevantParts.Last();
-            var toolFamily = string.Join(" ", relevantParts.Take(relevantParts.Length - 1));
-            return (toolFamily, operation);
+            Console.WriteLine($"Error parsing command '{command}': {ex.Message}");
+            return ("", "");
         }
-        
-        return ("", "");
     }
 }

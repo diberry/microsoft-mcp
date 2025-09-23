@@ -10,5 +10,9 @@
   {
     "Parameter": "param",
     "NaturalLanguage": "Parameter"
+  },
+  {
+    "Parameter": "nodepool",
+    "NaturalLanguage": "Node pool"
   }
 ]
