@@ -18,7 +18,8 @@ public static class DocumentationGenerator
         string outputDir,
         bool generateIndex = false,
         bool generateCommon = false,
-        bool generateCommands = false)
+        bool generateCommands = false,
+        bool generateServiceOptions = true)
     {
         // Config.Load has been called in Program.Main and TextCleanup is initialized statically
 
@@ -74,6 +75,13 @@ public static class DocumentationGenerator
         {
             var commandsTemplate = Path.Combine(templatesDir, "commands-template.hbs");
             await GenerateCommandsPageAsync(transformedData, outputDir, commandsTemplate);
+        }
+        
+        // Generate service options page
+        if (generateServiceOptions)
+        {
+            var serviceOptionsTemplate = Path.Combine(templatesDir, "service-start-option.hbs");
+            await GenerateServiceOptionsPageAsync(transformedData, outputDir, serviceOptionsTemplate);
         }
 
         return 0;
@@ -359,6 +367,36 @@ public static class DocumentationGenerator
         data.SourceDiscoveredCommonParams = allCommonParams.Values.OrderBy(p => p.Name).ToList();
         
         return data;
+    }
+
+    /// <summary>
+    /// Generates the service options documentation page.
+    /// </summary>
+    private static async Task GenerateServiceOptionsPageAsync(TransformedData data, string outputDir, string templateFile)
+    {
+        try
+        {
+            // Get service options from source
+            var serviceOptions = await ServiceOptionsDiscovery.DiscoverServiceStartOptionsFromSource();
+            
+            var serviceOptionsPageData = new Dictionary<string, object>
+            {
+                ["version"] = data.Version,
+                ["generatedAt"] = data.GeneratedAt,
+                ["serviceOptions"] = serviceOptions
+            };
+
+            var result = await HandlebarsTemplateEngine.ProcessTemplateAsync(templateFile, serviceOptionsPageData);
+
+            var outputFile = Path.Combine(outputDir, "service-start-option.md");
+            await File.WriteAllTextAsync(outputFile, result);
+            Console.WriteLine($"Generated service options page: service-start-option.md");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating service options page: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
     }
 
     /// <summary>

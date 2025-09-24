@@ -19,11 +19,15 @@
 .PARAMETER CreateCommands
     Whether to create a commands page (default: true)
     
+.PARAMETER CreateServiceOptions
+    Whether to create a service start options page (default: true)
+    
 .EXAMPLE
     ./Generate-MultiPageDocs.ps1
     ./Generate-MultiPageDocs.ps1 -Format json
     ./Generate-MultiPageDocs.ps1 -CreateIndex $false
     ./Generate-MultiPageDocs.ps1 -CreateCommands $false
+    ./Generate-MultiPageDocs.ps1 -CreateServiceOptions $false
 #>
 
 param(
@@ -31,7 +35,8 @@ param(
     [string]$Format = 'both',
     [bool]$CreateIndex = $true,
     [bool]$CreateCommon = $true,
-    [bool]$CreateCommands = $true
+    [bool]$CreateCommands = $true,
+    [bool]$CreateServiceOptions = $true
 )
 
 # Helper functions for colored output
@@ -113,6 +118,7 @@ try {
     if ($CreateIndex) { $generatorArgs += "--index" }
     if ($CreateCommon) { $generatorArgs += "--common" }
     if ($CreateCommands) { $generatorArgs += "--commands" }
+    if (-not $CreateServiceOptions) { $generatorArgs += "--no-service-options" }
     
     Push-Location "CSharpGenerator"
     & dotnet run --configuration Release -- $generatorArgs

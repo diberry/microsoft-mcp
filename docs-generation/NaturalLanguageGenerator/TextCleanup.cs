@@ -119,28 +119,112 @@ public static class TextCleanup
 
     private static string[] SplitAndTransformProgrammaticName(string programmaticName)
     {
-        // Split the programmatic name into words
-        var words = programmaticName.Split('-');
-
-        // Replace known `bad text` for Docs requirements
-        for (int i = 1; i < words.Length; i++)
+        if (string.IsNullOrEmpty(programmaticName))
         {
-            if (mappedParametersDict != null && mappedParametersDict.TryGetValue(words[i], out var naturalLanguageValue))
-            {
-                words[i] = naturalLanguageValue;
-            }
+            Console.WriteLine($"Warning: Empty programmatic name provided to SplitAndTransformProgrammaticName");
+            return new string[] { "Unknown" };
         }
+        
+        try
+        {
+            // Handle CLI-style parameters that start with "--"
+            if (programmaticName.StartsWith("--"))
+            {
+                programmaticName = programmaticName.Substring(2);
+            }
+            
+            // Split the programmatic name into words
+            var words = programmaticName.Split('-');
+            
+            if (words.Length == 0 || words[0].Length == 0)
+            {
+                Console.WriteLine($"Warning: Invalid programmatic name format: '{programmaticName}'");
+                return new string[] { "Unknown" };
+            }
 
-        // Capitalize the first word
-        words[0] = char.ToUpper(words[0][0]) + words[0].Substring(1);
+            // Transform each word: capitalize first letter, replace acronyms
+            for (int i = 0; i < words.Length; i++)
+            {
+                var word = words[i];
+                if (string.IsNullOrEmpty(word)) continue;
+                
+                // Handle known abbreviations and acronyms
+                word = TransformAcronyms(word);
+                
+                // Check if the word is in our replacement dictionary
+                if (mappedParametersDict != null && mappedParametersDict.TryGetValue(word, out var naturalLanguageValue))
+                {
+                    words[i] = naturalLanguageValue;
+                }
+                else
+                {
+                    // Capitalize the first letter
+                    words[i] = char.ToUpper(word[0]) + word.Substring(1);
+                }
+            }
 
-        return words;
+            return words;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error processing programmatic name '{programmaticName}': {ex.Message}");
+            return new string[] { "Unknown" };
+        }
+    }
+    
+    /// <summary>
+    /// Transforms common acronyms and abbreviations to their proper form
+    /// </summary>
+    private static string TransformAcronyms(string word)
+    {
+        return word.ToLowerInvariant() switch
+        {
+            "id" => "ID",
+            "ids" => "IDs",
+            "uri" => "URI",
+            "url" => "URL",
+            "urls" => "URLs",
+            "ai" => "AI",
+            "api" => "API",
+            "apis" => "APIs",
+            "cpu" => "CPU",
+            "gpu" => "GPU",
+            "ip" => "IP",
+            "sql" => "SQL",
+            "vm" => "VM",
+            "vms" => "VMs",
+            "dns" => "DNS",
+            "sku" => "SKU",
+            "skus" => "SKUs",
+            "tls" => "TLS",
+            "ssl" => "SSL",
+            "http" => "HTTP",
+            "https" => "HTTPS",
+            "json" => "JSON",
+            "xml" => "XML",
+            "yaml" => "YAML",
+            "oauth" => "OAuth",
+            "cdn" => "CDN",
+            "rg" => "Resource group",
+            _ => word
+        };
     }
 
     public static string NormalizeParameter(string programmaticName)
     {
+        if (string.IsNullOrEmpty(programmaticName))
+        {
+            Console.WriteLine("Warning: Empty parameter name provided to NormalizeParameter");
+            return "Unknown";
+        }
 
+        // Handle CLI-style parameters that start with "--"
+        if (programmaticName.StartsWith("--"))
+        {
+            programmaticName = programmaticName.Substring(2);
+        }
 
+        // Check if we have a direct mapping in our dictionary
         if (mappedParametersDict != null && mappedParametersDict.TryGetValue(programmaticName, out var naturalLanguageName))
         {
             Console.WriteLine($"Found natural language name for '{programmaticName}': {naturalLanguageName}");
@@ -153,11 +237,26 @@ public static class TextCleanup
         for (int i = 0; i < words.Length; i++)
         {
             words[i] = ReplaceStaticText(words[i]);
+            
+            // Only keep first word capitalized, lowercase the rest
+            // Skip known acronyms that should remain uppercase
+            if (i > 0 && !IsAcronym(words[i]))
+            {
+                words[i] = words[i].ToLowerInvariant();
+            }
         }
 
-        Console.WriteLine($"Converted '{programmaticName}' to natural language: {string.Join(" ", words)}");
+        var result = string.Join(" ", words);
+        Console.WriteLine($"Converted '{programmaticName}' to natural language: {result}");
 
-        return string.Join(" ", words);
+        return result;
+    }
+    
+    // Helper method to check if a word is a known acronym that should remain uppercase
+    private static bool IsAcronym(string word)
+    {
+        string[] knownAcronyms = { "ID", "IDs", "URI", "URL", "URLs", "AI", "API", "APIs", "CPU", "GPU", "IP", "SQL", "VM", "VMs", "DNS", "SKU", "SKUs", "TLS", "SSL", "HTTP", "HTTPS", "JSON", "XML", "YAML", "OAuth", "CDN" };
+        return knownAcronyms.Contains(word);
     }
     public static string ReplaceStaticText(string text)
     {
@@ -169,7 +268,7 @@ public static class TextCleanup
         // If we have a precompiled regex, do a single-pass replacement with a MatchEvaluator.
         if (replacerRegex != null)
         {
-            return replacerRegex.Replace(text, m =>
+            text = replacerRegex.Replace(text, m =>
             {
                 // mappedParametersDict is case-insensitive; match.Value is the matched key
                 if (mappedParametersDict.TryGetValue(m.Value, out var replacement))
@@ -179,20 +278,44 @@ public static class TextCleanup
                 return m.Value;
             });
         }
-
-        // Fallback: ordered per-key regex replacement (less efficient) with boundary lookarounds
-        var orderedKeys = mappedParametersDict.Keys
-            .Where(k => !string.IsNullOrEmpty(k))
-            .OrderByDescending(k => k.Length)
-            .ToList();
-
-        foreach (var key in orderedKeys)
+        else
         {
-            var replacement = mappedParametersDict[key] ?? string.Empty;
-            var pattern = $"(?<![A-Za-z0-9_-]){Regex.Escape(key)}(?![A-Za-z0-9_-])";
-            text = Regex.Replace(text, pattern, replacement, RegexOptions.IgnoreCase);
+            // Fallback: ordered per-key regex replacement (less efficient) with boundary lookarounds
+            var orderedKeys = mappedParametersDict.Keys
+                .Where(k => !string.IsNullOrEmpty(k))
+                .OrderByDescending(k => k.Length)
+                .ToList();
+
+            foreach (var key in orderedKeys)
+            {
+                var replacement = mappedParametersDict[key] ?? string.Empty;
+                var pattern = $"(?<![A-Za-z0-9_-]){Regex.Escape(key)}(?![A-Za-z0-9_-])";
+                text = Regex.Replace(text, pattern, replacement, RegexOptions.IgnoreCase);
+            }
         }
 
-        return text;
+        // Ensure text ends with a period
+        return EnsureEndsPeriod(text);
+    }
+    
+    /// <summary>
+    /// Ensures text ends with a period, adding one if missing
+    /// </summary>
+    public static string EnsureEndsPeriod(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
+        
+        text = text.Trim();
+        
+        // Skip if already ends with punctuation
+        if (text.EndsWith(".") || text.EndsWith("?") || text.EndsWith("!"))
+        {
+            return text;
+        }
+        
+        return text + ".";
     }
 }

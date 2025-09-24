@@ -256,45 +256,55 @@ public static class HandlebarsTemplateEngine
             if (paramName.StartsWith("--"))
                 paramName = paramName.Substring(2);
                 
-            // Split by hyphens and format each word
-            var words = paramName.Split('-')
-                .Where(w => !string.IsNullOrEmpty(w))
-                .Select(word => 
-                {
-                    // Handle common acronyms
-                    if (word.Equals("id", StringComparison.OrdinalIgnoreCase)) return "ID";
-                    if (word.Equals("ids", StringComparison.OrdinalIgnoreCase)) return "IDs";
-                    if (word.Equals("uri", StringComparison.OrdinalIgnoreCase)) return "URI";
-                    if (word.Equals("url", StringComparison.OrdinalIgnoreCase)) return "URL";
-                    if (word.Equals("urls", StringComparison.OrdinalIgnoreCase)) return "URLs";
-                    if (word.Equals("ai", StringComparison.OrdinalIgnoreCase)) return "AI";
-                    if (word.Equals("api", StringComparison.OrdinalIgnoreCase)) return "API";
-                    if (word.Equals("apis", StringComparison.OrdinalIgnoreCase)) return "APIs";
-                    if (word.Equals("cpu", StringComparison.OrdinalIgnoreCase)) return "CPU";
-                    if (word.Equals("gpu", StringComparison.OrdinalIgnoreCase)) return "GPU";
-                    if (word.Equals("ip", StringComparison.OrdinalIgnoreCase)) return "IP";
-                    if (word.Equals("sql", StringComparison.OrdinalIgnoreCase)) return "SQL";
-                    if (word.Equals("vm", StringComparison.OrdinalIgnoreCase)) return "VM";
-                    if (word.Equals("vms", StringComparison.OrdinalIgnoreCase)) return "VMs";
-                    if (word.Equals("dns", StringComparison.OrdinalIgnoreCase)) return "DNS";
-                    if (word.Equals("sku", StringComparison.OrdinalIgnoreCase)) return "SKU";
-                    if (word.Equals("skus", StringComparison.OrdinalIgnoreCase)) return "SKUs";
-                    if (word.Equals("tls", StringComparison.OrdinalIgnoreCase)) return "TLS";
-                    if (word.Equals("ssl", StringComparison.OrdinalIgnoreCase)) return "SSL";
-                    if (word.Equals("http", StringComparison.OrdinalIgnoreCase)) return "HTTP";
-                    if (word.Equals("https", StringComparison.OrdinalIgnoreCase)) return "HTTPS";
-                    if (word.Equals("json", StringComparison.OrdinalIgnoreCase)) return "JSON";
-                    if (word.Equals("xml", StringComparison.OrdinalIgnoreCase)) return "XML";
-                    if (word.Equals("yaml", StringComparison.OrdinalIgnoreCase)) return "YAML";
-                    if (word.Equals("oauth", StringComparison.OrdinalIgnoreCase)) return "OAuth";
-                    if (word.Equals("cdn", StringComparison.OrdinalIgnoreCase)) return "CDN";
-                    if (word.Equals("rg", StringComparison.OrdinalIgnoreCase)) return "Resource group";
-                    
-                    // Default case: capitalize first letter
-                    return char.ToUpper(word[0]) + word.Substring(1);
-                });
+            // Split by hyphens
+            var wordsList = paramName.Split('-').Where(w => !string.IsNullOrEmpty(w)).ToList();
+            
+            // Process words: Capitalize only the first word, handle acronyms
+            for (int i = 0; i < wordsList.Count; i++)
+            {
+                string word = wordsList[i];
                 
-            return string.Join(" ", words);
+                // Handle common acronyms (preserve for all positions)
+                if (word.Equals("id", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "ID";
+                else if (word.Equals("ids", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "IDs";
+                else if (word.Equals("uri", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "URI";
+                else if (word.Equals("url", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "URL";
+                else if (word.Equals("urls", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "URLs";
+                else if (word.Equals("ai", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "AI";
+                else if (word.Equals("api", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "API";
+                else if (word.Equals("apis", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "APIs";
+                else if (word.Equals("cpu", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "CPU";
+                else if (word.Equals("gpu", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "GPU";
+                else if (word.Equals("ip", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "IP";
+                else if (word.Equals("sql", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "SQL";
+                else if (word.Equals("vm", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "VM";
+                else if (word.Equals("vms", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "VMs";
+                else if (word.Equals("dns", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "DNS";
+                else if (word.Equals("sku", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "SKU";
+                else if (word.Equals("skus", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "SKUs";
+                else if (word.Equals("tls", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "TLS";
+                else if (word.Equals("ssl", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "SSL";
+                else if (word.Equals("http", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "HTTP";
+                else if (word.Equals("https", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "HTTPS";
+                else if (word.Equals("json", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "JSON";
+                else if (word.Equals("xml", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "XML";
+                else if (word.Equals("yaml", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "YAML";
+                else if (word.Equals("oauth", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "OAuth";
+                else if (word.Equals("cdn", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "CDN";
+                else if (word.Equals("rg", StringComparison.OrdinalIgnoreCase)) wordsList[i] = "Resource group";
+                // For the first word, capitalize it
+                else if (i == 0)
+                {
+                    wordsList[i] = char.ToUpper(word[0]) + word.Substring(1).ToLower();
+                }
+                // For all other words, keep them lowercase
+                else
+                {
+                    wordsList[i] = word.ToLower();
+                }
+            }
+            
+            return string.Join(" ", wordsList);
         });
         
         // Equality comparison helper
