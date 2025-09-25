@@ -86,7 +86,7 @@ public static class OptionsDiscovery
                     Name = matchingOption.ParameterName,
                     Type = MapCSharpTypeToJsonType(mapping.PropertyType.Replace("?", "")),
                     IsRequired = matchingOption.IsRequired,
-                    Description = TextCleanup.ReplaceStaticText(matchingOption.Description),
+                    Description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(matchingOption.Description)),
                     UsagePercent = 100,
                     IsHidden = matchingOption.IsHidden,
                     Source = matchingOption.ClassName,
@@ -108,7 +108,7 @@ public static class OptionsDiscovery
                     Name = option.ParameterName ?? "Unknown",
                     Type = MapCSharpTypeToJsonType(option.Type),
                     IsRequired = option.IsRequired,
-                    Description = TextCleanup.ReplaceStaticText(option.Description),
+                    Description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(option.Description)),
                     UsagePercent = 100,
                     IsHidden = option.IsHidden,
                     Source = option.ClassName,
@@ -265,7 +265,7 @@ public static class OptionsDiscovery
                 PropertyName = propertyName,
                 ParameterName = paramName,
                 Type = type,
-                Description = TextCleanup.ReplaceStaticText(description),
+                Description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(description)),
                 IsRequired = isRequired,
                 IsHidden = isHidden
             });

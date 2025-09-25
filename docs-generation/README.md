@@ -174,3 +174,84 @@ pwsh ./Generate-MultiPageDocs.ps1
 
 If the process can't create a value, it inserts the `TBD` placeholder. Look for those in the generated markdown and provide better values based on content. 
 
+## VS Code Debugging
+
+The project includes debugging support for VS Code to help you debug the documentation generation process. You can use the `Debug-MultiPageDocs.ps1` script to prepare the environment and then attach the VS Code debugger.
+
+### Steps to Debug in VS Code
+
+1. **Prepare the VS Code launch configuration**:
+
+   Ensure you have the following configuration in your `.vscode/launch.json` file:
+   
+   ```json
+   {
+       "name": "Debug Generate Docs",
+       "type": "coreclr",
+       "request": "launch",
+       "preLaunchTask": "build",
+       "program": "${workspaceFolder}/docs-generation/CSharpGenerator/bin/Debug/net9.0/CSharpGenerator.dll",
+       "args": [
+           "generate-docs",
+           "../generated/cli-output.json",
+           "../generated/multi-page",
+           "--index",
+           "--common",
+           "--commands"
+       ],
+       "cwd": "${workspaceFolder}/docs-generation/CSharpGenerator",
+       "console": "integratedTerminal",
+       "stopAtEntry": false,
+       "env": {
+           "DOTNET_ENVIRONMENT": "Development"
+       }
+   },
+   {
+       "name": "Attach to .NET Process",
+       "type": "coreclr",
+       "request": "attach",
+       "processId": "${command:pickProcess}"
+   },
+   {
+       "name": "PowerShell Interactive Session",
+       "type": "PowerShell",
+       "request": "launch",
+       "cwd": "${cwd}"
+   }
+   ```
+
+2. **Set breakpoints**:
+   
+   Set breakpoints in the CSharpGenerator code (e.g., `Program.cs`) where you want to pause execution.
+
+3. **Run the debug script**:
+
+   ```bash
+   cd docs-generation
+   pwsh ./Debug-MultiPageDocs.ps1
+   ```
+
+   This script will:
+   - Clean up previous output
+   - Generate or use existing CLI output
+   - Build the C# generator in debug mode
+   - Pause and provide instructions for attaching the debugger
+
+4. **Start the debugger**:
+
+   When the script pauses with "READY FOR DEBUGGING", switch to VS Code and:
+   
+   - Select the "Debug Generate Docs" launch configuration from the Run panel
+   - Start debugging (F5)
+
+5. **Follow the execution**:
+
+   - The debugger will stop at your breakpoints
+   - You can examine variables, step through code, and debug as needed
+
+If you prefer not to use the debug script, you can manually start debugging by:
+
+1. Building the CSharpGenerator in Debug mode
+2. Ensuring CLI output exists at `generated/cli-output.json`
+3. Starting the "Debug Generate Docs" launch configuration in VS Code
+```

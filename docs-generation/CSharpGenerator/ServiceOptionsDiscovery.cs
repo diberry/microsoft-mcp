@@ -146,7 +146,7 @@ public static class ServiceOptionsDiscovery
                 var propertyDescMatch = Regex.Match(propertiesContent, propertyDescPattern);
                 if (propertyDescMatch.Success)
                 {
-                    description = TextCleanup.ReplaceStaticText(propertyDescMatch.Groups[1].Value);
+                    description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(propertyDescMatch.Groups[1].Value));
                 }
             }
 
@@ -163,7 +163,7 @@ public static class ServiceOptionsDiscovery
                 Name = paramName,
                 PropertyName = propertyName,
                 Type = MapCSharpTypeToJsonType(type),
-                Description = TextCleanup.ReplaceStaticText(description),
+                Description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(description)),
                 IsRequired = isRequired,
                 IsHidden = isHidden,
                 NlName = TextCleanup.NormalizeParameter(paramName)

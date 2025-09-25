@@ -40,7 +40,7 @@ No parameters
 | Parameter |  Required or optional | Description |
 |-----------------------|----------------------|-------------|
 {{#each option}}
-| **{{#if (eq NL_Name "Unknown")}}{{formatNaturalLanguage name}}{{else}}{{NL_Name}}{{/if}}** |  {{RequiredText}} | {{description}} |
+| **{{#if (eq NL_Name "Unknown")}}{{formatNaturalLanguage name}}{{else}}{{replace NL_Name "." " "}}{{/if}}** |  {{RequiredText}} | {{description}} |
 {{/each}}
 {{else}}
 No parameters

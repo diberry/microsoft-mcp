@@ -236,7 +236,8 @@ public static class TextCleanup
 
         for (int i = 0; i < words.Length; i++)
         {
-            words[i] = ReplaceStaticText(words[i]);
+            // Don't call ReplaceStaticText here as it adds periods to each word
+            // Just handle capitalization directly
             
             // Only keep first word capitalized, lowercase the rest
             // Skip known acronyms that should remain uppercase
@@ -246,7 +247,12 @@ public static class TextCleanup
             }
         }
 
+        // Join words with spaces, not periods
         var result = string.Join(" ", words);
+        
+        // Remove any periods in the output to avoid "Resource. group." format
+        result = result.Replace(".", "");
+        
         Console.WriteLine($"Converted '{programmaticName}' to natural language: {result}");
 
         return result;
@@ -294,12 +300,12 @@ public static class TextCleanup
             }
         }
 
-        // Ensure text ends with a period
-        return EnsureEndsPeriod(text);
+        // Don't automatically add period - caller will use EnsureEndsPeriod if needed
+        return text;
     }
     
     /// <summary>
-    /// Ensures text ends with a period, adding one if missing
+    /// Ensures text ends with a period, adding one if missing. Should only be used for parameter descriptions.
     /// </summary>
     public static string EnsureEndsPeriod(string text)
     {

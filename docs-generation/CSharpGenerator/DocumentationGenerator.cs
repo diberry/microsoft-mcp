@@ -171,7 +171,7 @@ public static class DocumentationGenerator
                 {
                     Name = tool.Name,
                     Command = tool.Command,
-                    Description = TextCleanup.ReplaceStaticText(tool.Description ?? ""),
+                    Description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(tool.Description ?? "")),
                     SourceFile = tool.SourceFile,
                     Area = tool.Area
                 };
@@ -189,7 +189,7 @@ public static class DocumentationGenerator
                             Type = opt.Type,
                             Required = opt.Required,
                             RequiredText = opt.Required == true ? "Required" : "Optional",
-                            Description = TextCleanup.ReplaceStaticText(opt.Description ?? ""),
+                            Description = TextCleanup.EnsureEndsPeriod(TextCleanup.ReplaceStaticText(opt.Description ?? "")),
                         })
                         .ToList();
                 }

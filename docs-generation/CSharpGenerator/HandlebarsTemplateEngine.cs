@@ -319,6 +319,18 @@ public static class HandlebarsTemplateEngine
             return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
         });
         
+        // String replacement helper
+        handlebars.RegisterHelper("replace", (context, arguments) =>
+        {
+            if (arguments.Length < 3) return arguments.Length > 0 ? arguments[0]?.ToString() : string.Empty;
+            
+            var str = arguments[0]?.ToString() ?? string.Empty;
+            var oldValue = arguments[1]?.ToString() ?? string.Empty;
+            var newValue = arguments[2]?.ToString() ?? string.Empty;
+            
+            return str.Replace(oldValue, newValue);
+        });
+
         // Group by property helper
         handlebars.RegisterHelper("groupBy", (context, arguments) =>
         {
