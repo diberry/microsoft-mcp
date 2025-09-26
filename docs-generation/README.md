@@ -18,6 +18,10 @@ docs-generation/
 ├── CSharpGenerator/               # C# console application
 │   ├── CSharpGenerator.csproj    # Project file with Handlebars.Net dependency
 │   └── Program.cs                # Main generator logic
+├── ToolMetadataExtractor/        # Tool for extracting ToolMetadata information
+│   ├── Models/                   # Data models for tool metadata
+│   ├── Services/                 # Services for metadata extraction
+│   └── Program.cs                # Command-line interface
 └── templates/                    # Handlebars template files
     ├── area-template.hbs         # Template for area-specific documentation
     └── common-tools.hbs          # Template for common tools documentation
@@ -26,9 +30,10 @@ docs-generation/
 ## Process Flow
 
 1. **Data Extraction**: The PowerShell script calls the Azure MCP CLI (`dotnet run -- tools list`) to extract tool information
-2. **Data Processing**: CLI output is saved as JSON and passed to the C# generator
-3. **Template Processing**: The C# generator uses Handlebars.Net to process templates with the extracted data
-4. **Documentation Generation**: Multi-page Markdown documentation is generated in the `generated/multi-page/` directory
+2. **Metadata Extraction**: The ToolMetadataExtractor can be used to extract ToolMetadata properties from tool source files
+3. **Data Processing**: CLI output and metadata are saved as JSON and passed to the C# generator
+4. **Template Processing**: The C# generator uses Handlebars.Net to process templates with the extracted data
+5. **Documentation Generation**: Multi-page Markdown documentation is generated in the `generated/multi-page/` directory
 
 ## Dependencies
 
@@ -173,6 +178,61 @@ pwsh ./Generate-MultiPageDocs.ps1
 ## 4. Search for `TBD`
 
 If the process can't create a value, it inserts the `TBD` placeholder. Look for those in the generated markdown and provide better values based on content. 
+
+## Tool Metadata Extractor
+
+The ToolMetadataExtractor is a command-line utility that extracts metadata from MCP tool source files. It helps identify and extract `ToolMetadata` properties that provide important information about each tool's capabilities and behavior.
+
+### Usage
+
+```bash
+# Extract metadata from a list of tools
+dotnet run --project ToolMetadataExtractor/ToolMetadataExtractor.csproj -- --tools "storage account list" "keyvault secret create" --output metadata.json
+
+# Extract metadata from a file containing tool names
+dotnet run --project ToolMetadataExtractor/ToolMetadataExtractor.csproj -- --tools-file tool-list.txt --output metadata.json
+
+# Use the provided scripts
+./extract-metadata.sh    # Bash script
+./Extract-Metadata.ps1   # PowerShell script
+```
+
+### Extracted Metadata
+
+The tool extracts the following metadata for each tool:
+
+- **ToolPath**: The full path of the tool (e.g., "storage account list")
+- **SourceFile**: The path to the source file where the tool is defined
+- **Metadata**: Dictionary of metadata properties and their boolean values:
+  - **Destructive**: Whether the tool performs destructive operations
+  - **Idempotent**: Whether calling the tool repeatedly with the same arguments has no additional effect
+  - **OpenWorld**: Whether the tool interacts with an unpredictable set of entities
+  - **ReadOnly**: Whether the tool only reads data without modifying state
+  - **Secret**: Whether the tool handles sensitive information
+  - **LocalRequired**: Whether the tool requires local execution
+- **Title**: The tool's title
+- **Description**: The tool's description
+
+### Sample Output
+
+```json
+[
+  {
+    "ToolPath": "storage account list",
+    "SourceFile": "/workspaces/new-mcp/tools/Azure.Mcp.Tools.Storage/src/Commands/Account/StorageAccountListCommand.cs",
+    "Metadata": {
+      "Destructive": false,
+      "Idempotent": true,
+      "OpenWorld": false,
+      "ReadOnly": true,
+      "LocalRequired": false,
+      "Secret": false
+    },
+    "Title": "List Storage Accounts",
+    "Description": "Lists storage accounts in a subscription or resource group..."
+  }
+]
+```
 
 ## VS Code Debugging
 
