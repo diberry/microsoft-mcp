@@ -123,10 +123,10 @@
 # ServiceOwners:                       @vurhanau @xiangyan99
 
 # PRLabel: %tools-AzureBackup
-/tools/Azure.Mcp.Tools.AzureBackup/        @shrja @microsoft/azure-mcp
+/tools/Azure.Mcp.Tools.AzureBackup/        @shrja-ms @microsoft/azure-mcp
 
 # ServiceLabel: %tools-AzureBackup
-# ServiceOwners:                           @shrja
+# ServiceOwners:                           @shrja-ms
 
 # ServiceLabel: %tools-AzCLI
 # ServiceOwners:                       @JasonYeMSFT @microsoft/azure-mcp
